@@ -1,13 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"strings"
+	"sync"
+	"unicode"
 
 	"github.com/VonC/username/version"
 	"github.com/eiannone/keyboard"
 )
+
+type app struct {
+	sync.RWMutex
+	name string
+}
 
 func main() {
 
@@ -19,6 +29,24 @@ func main() {
 		}
 	}
 
+	a := &app{}
+	a.listenToKey()
+}
+
+func (a *app) getName() string {
+	a.RLock()
+	n := a.name
+	a.RUnlock()
+	return n
+}
+
+func (a *app) addToName(c string) {
+	a.Lock()
+	a.name = a.name + c
+	a.Unlock()
+}
+
+func (a *app) listenToKey() {
 	keysEvents, err := keyboard.GetKeys(10)
 	if err != nil {
 		panic(err)
@@ -27,6 +55,9 @@ func main() {
 		_ = keyboard.Close()
 	}()
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	fmt.Println("Press ESC to quit")
 	for {
 		event := <-keysEvents
@@ -36,6 +67,54 @@ func main() {
 		fmt.Printf("You pressed: rune %q, key %X\r\n", event.Rune, event.Key)
 		if event.Key == keyboard.KeyEsc {
 			break
+		}
+		rune := event.Rune
+		if unicode.IsLetter(rune) {
+			n := a.getName()
+			if n != "" {
+				fmt.Println("call cancel1")
+				cancel()
+				<-ctx.Done()
+				log.Printf("Lookup with '%s' indeed CANCELLED\n", n)
+			}
+			ctx = context.Background()
+			ctx, cancel = context.WithCancel(ctx)
+			defer cancel()
+			a.addToName(string(rune))
+			a.searchForName(ctx)
+		}
+	}
+}
+
+func (a *app) searchForName(ctx context.Context) {
+	fmt.Printf("Search for name '%s'\n", a.name)
+	go a.lookupName(ctx)
+}
+
+func (a *app) lookupName(ctx context.Context) {
+	n := a.getName()
+
+	// Start a process:
+	cmd := exec.Command("ping", "127.0.0.1", "-n", "8")
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Wait for the process to finish or kill it after a timeout (whichever happens first):
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			log.Fatalf("process finished with error = %v for n='%s'", err, n)
+		}
+		log.Printf("process finished successfully for n='%s'", n)
+	case <-ctx.Done():
+		log.Printf("Lookup with '%s' CANCELLED\n", n)
+		if err := cmd.Process.Kill(); err != nil {
+			log.Fatal(err)
 		}
 	}
 }
