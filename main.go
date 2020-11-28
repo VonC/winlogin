@@ -16,7 +16,8 @@ import (
 
 type app struct {
 	sync.RWMutex
-	name string
+	name   string
+	domain string
 }
 
 func main() {
@@ -46,6 +47,24 @@ func (a *app) addToName(c string) {
 	a.Unlock()
 }
 
+func (a *app) getDomainMail() string {
+	a.RLock()
+	d := a.domain
+	a.RUnlock()
+	if d == "" {
+		d = os.Getenv("USERMAIL")
+		ds := strings.Split(d, "@")
+		if len(ds) != 2 {
+			log.Fatalf("Invalid USERMAIL domain mail '%s'", d)
+		}
+		d = ds[1]
+		a.Lock()
+		a.domain = d
+		a.Unlock()
+	}
+	return d
+}
+
 func (a *app) listenToKey() {
 	keysEvents, err := keyboard.GetKeys(10)
 	if err != nil {
@@ -58,6 +77,7 @@ func (a *app) listenToKey() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	fmt.Printf("Look for login of user emails '@%s'\n", a.getDomainMail())
 	fmt.Println("Press ESC to quit")
 	for {
 		event := <-keysEvents
