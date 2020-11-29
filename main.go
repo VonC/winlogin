@@ -115,7 +115,8 @@ func (a *app) lookupName(ctx context.Context) {
 	n := a.getName()
 
 	// Start a process:
-	cmd := exec.Command("ping", "127.0.0.1", "-n", "8")
+	scmd := fmt.Sprintf("echo \"%s\">a&& ping 127.0.0.1 -n 8", n)
+	cmd := exec.Command("cmd", "/K", scmd)
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
