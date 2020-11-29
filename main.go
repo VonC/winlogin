@@ -18,9 +18,10 @@ import (
 
 type app struct {
 	sync.RWMutex
-	name   string
-	domain string
-	result *res
+	name    string
+	domain  string
+	result  *res
+	verbose bool
 }
 
 type res struct {
@@ -33,15 +34,19 @@ func (r *res) String() string {
 
 func main() {
 
+	verbose := false
 	for _, f := range os.Args[1:] {
 		fl := strings.ToLower(f)
-		if fl == "-v" || fl == "--version" || fl == "version" {
+		if fl == "-V" || fl == "--version" || fl == "version" {
 			fmt.Println(version.String())
 			os.Exit(0)
 		}
+		if fl == "-v" || fl == "--verbose" {
+			verbose = true
+		}
 	}
 
-	a := &app{}
+	a := &app{verbose: verbose}
 	a.listenToKey()
 }
 
@@ -97,6 +102,12 @@ func (a *app) getDomainMail() string {
 	return d
 }
 
+func (a *app) logf(format string, v ...interface{}) {
+	if a.verbose {
+		log.Printf(format, v...)
+	}
+}
+
 func (a *app) listenToKey() {
 	keysEvents, err := keyboard.GetKeys(10)
 	if err != nil {
@@ -116,19 +127,19 @@ func (a *app) listenToKey() {
 		if event.Err != nil {
 			panic(event.Err)
 		}
-		fmt.Printf("You pressed: rune %q ('%s'), key %X\r\n", event.Rune, string(event.Rune), event.Key)
+		a.logf("You pressed: rune %q ('%s'), key %X\r\n", event.Rune, string(event.Rune), event.Key)
 		if event.Key == keyboard.KeyEsc {
 			break
 		}
 		arune := event.Rune
 		if unicode.IsLetter(arune) {
-			log.Printf("Add '%q/%X' to '%s'", event.Rune, event.Key, a.getName())
+			a.logf("Add '%q/%X' to '%s'", event.Rune, event.Key, a.getName())
 			n := a.getName()
 			if n != "" {
-				fmt.Println("call cancel1")
+				a.logf("call cancel1")
 				cancel()
 				<-ctx.Done()
-				log.Printf("Lookup with '%s' indeed CANCELLED\n", n)
+				a.logf("Lookup with '%s' indeed CANCELLED\n", n)
 			}
 			ctx = context.Background()
 			ctx, cancel = context.WithCancel(ctx)
@@ -138,16 +149,16 @@ func (a *app) listenToKey() {
 			continue
 		}
 		if event.Key == 32 {
-			log.Printf("Add space to '%s'", a.getName())
+			a.logf("Add space to '%s'", a.getName())
 			a.addToName(" ")
 		} else {
-			log.Printf("Nope on '%d'", event.Key)
+			a.logf("Nope on '%d'", event.Key)
 		}
 	}
 }
 
 func (a *app) searchForName(ctx context.Context) {
-	fmt.Printf("Search for name '%s'\n", a.name)
+	a.logf("Search for name '%s'\n", a.name)
 	go a.lookupName(ctx)
 }
 
@@ -157,7 +168,7 @@ func (a *app) lookupName(ctx context.Context) {
 	// Start a process:
 	// scmd := fmt.Sprintf("echo \"%s\">a&& ping 127.0.0.1 -n 8", n)
 	scmd := a.getQueryFromName()
-	log.Printf("%s", scmd)
+	a.logf("%s", scmd)
 
 	berr := &bytes.Buffer{}
 	bout := &bytes.Buffer{}
@@ -190,11 +201,11 @@ func (a *app) lookupName(ctx context.Context) {
 		if err != nil {
 			log.Fatalf("process finished with error = %v for n='%s'", err, n)
 		}
-		log.Printf("process finished successfully for n='%s'", n)
+		a.logf("process finished successfully for n='%s'", n)
 		a.setRes(bout.String())
 		log.Printf("Res for '%s': '%s'", a.getName(), a.getRes())
 	case <-ctx.Done():
-		log.Printf("Lookup with '%s' CANCELLED\n", n)
+		a.logf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
 			log.Fatal(err)
 		}
