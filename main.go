@@ -68,7 +68,7 @@ func main() {
 	verbose := false
 	for _, f := range os.Args[1:] {
 		fl := strings.ToLower(f)
-		if fl == "-V" || fl == "--version" || fl == "version" {
+		if f == "-V" || fl == "--version" || fl == "version" {
 			fmt.Println(version.String())
 			os.Exit(0)
 		}
