@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"unicode"
 
 	"github.com/VonC/username/version"
@@ -150,11 +151,28 @@ func (a *app) lookupName(ctx context.Context) {
 
 	// Start a process:
 	scmd := fmt.Sprintf("echo \"%s\">a&& ping 127.0.0.1 -n 8", n)
-	cmd := exec.Command("cmd", "/K", scmd)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+	//scmd := a.getQueryFromName()
+	log.Printf("%s", scmd)
+
+	berr := &bytes.Buffer{}
+	bout := &bytes.Buffer{}
+	cmd := exec.Command("cmd", "/C", scmd)
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	cmd.SysProcAttr.CmdLine = "cmd /C " + scmd
+	cmd.Stderr = berr
+	cmd.Stdout = bout
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		log.Fatalf("stdin error %s [%s]", err, berr.String())
+	}
+	err = stdin.Close()
+	if err != nil {
+		log.Fatalf("Close error ion stdin %s", err)
+	}
+	err = cmd.Start()
+	if err != nil {
+		log.Fatalf("start error %s [%s]", err, berr.String())
 	}
 
 	// Wait for the process to finish or kill it after a timeout (whichever happens first):
@@ -168,7 +186,7 @@ func (a *app) lookupName(ctx context.Context) {
 			log.Fatalf("process finished with error = %v for n='%s'", err, n)
 		}
 		log.Printf("process finished successfully for n='%s'", n)
-		a.setRes(out.String())
+		a.setRes(bout.String())
 		log.Printf("Res for '%s': '%s'", a.getName(), a.getRes())
 	case <-ctx.Done():
 		log.Printf("Lookup with '%s' CANCELLED\n", n)
