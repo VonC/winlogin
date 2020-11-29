@@ -18,6 +18,15 @@ type app struct {
 	sync.RWMutex
 	name   string
 	domain string
+	result *res
+}
+
+type res struct {
+	output string
+}
+
+func (r *res) String() string {
+	return r.output
 }
 
 func main() {
@@ -47,6 +56,25 @@ func (a *app) addToName(c string) {
 		a.name = a.name + c
 	}
 	a.Unlock()
+}
+
+func (a *app) getRes() *res {
+	a.RLock()
+	r := a.result
+	a.RUnlock()
+	return r
+}
+
+func (a *app) setRes(output string) {
+	r := newRes(output)
+	a.Lock()
+	a.result = r
+	a.Unlock()
+}
+
+func newRes(output string) *res {
+	r := &res{output: output}
+	return r
 }
 
 func (a *app) getDomainMail() string {
