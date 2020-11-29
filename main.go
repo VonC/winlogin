@@ -150,8 +150,8 @@ func (a *app) lookupName(ctx context.Context) {
 	n := a.getName()
 
 	// Start a process:
-	scmd := fmt.Sprintf("echo \"%s\">a&& ping 127.0.0.1 -n 8", n)
-	//scmd := a.getQueryFromName()
+	// scmd := fmt.Sprintf("echo \"%s\">a&& ping 127.0.0.1 -n 8", n)
+	scmd := a.getQueryFromName()
 	log.Printf("%s", scmd)
 
 	berr := &bytes.Buffer{}
@@ -195,4 +195,40 @@ func (a *app) lookupName(ctx context.Context) {
 		}
 		a.setRes("")
 	}
+}
+
+func (a *app) getQueryFromName() string {
+	n := a.getName()
+	if n == "" {
+		return ""
+	}
+	elts := strings.Split(strings.TrimSpace(n), " ")
+	if len(elts) != 1 && len(elts) != 2 {
+		log.Fatalf("Invalid split on name '%s'", n)
+	}
+	query := ""
+	for i, elt := range elts {
+		var buffer bytes.Buffer
+		for _, rune := range elt {
+			buffer.WriteRune(rune)
+			buffer.WriteRune('*')
+		}
+		elts[i] = buffer.String()
+	}
+	filters := make([]string, 0)
+	if len(elts) == 1 {
+		filters = append(filters, elts[0])
+	} else {
+		f1 := fmt.Sprintf("%s.%s", elts[0], elts[1])
+		f2 := fmt.Sprintf("%s.%s", elts[1], elts[0])
+		filters = append(filters, f1, f2)
+	}
+	for _, f := range filters {
+		query = query + fmt.Sprintf("(&(objectCategory=Person)(objectClass=User)(mail=%s@%s))", f, a.getDomainMail())
+	}
+	if len(elts) == 2 {
+		query = fmt.Sprintf("(|%s)", query)
+	}
+	query = fmt.Sprintf("DSQUERY * domainroot -filter \"%s\" -attr sAMAccountName mail", query)
+	return query
 }
