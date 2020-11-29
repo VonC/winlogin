@@ -16,6 +16,7 @@ import (
 	"unicode"
 
 	"github.com/VonC/username/version"
+	"github.com/atotto/clipboard"
 	"github.com/eiannone/keyboard"
 )
 
@@ -61,6 +62,10 @@ func (us users) String() string {
 	}
 	wcsv.Flush()
 	return csv.String()
+}
+
+func (a *app) hasOnlyOneUser() bool {
+	return len(a.getRes().wusers) == 1
 }
 
 func main() {
@@ -256,6 +261,15 @@ func (a *app) lookupName(ctx context.Context) {
 		a.logf("process finished successfully for n='%s'", n)
 		a.setRes(bout.String())
 		log.Printf("Res for '%s':'\n%s'", a.getName(), a.getRes())
+		if a.hasOnlyOneUser() {
+			login := a.result.wusers[0].login
+			log.Printf("Login '%s' copied to clipbord. Exiting.", login)
+			errc := clipboard.WriteAll(login)
+			if errc != nil {
+				log.Fatalf("Login '%s' NOT copied to the clipboard because of '%+v'\n", login, errc)
+			}
+			os.Exit(0)
+		}
 	case <-ctx.Done():
 		a.logf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
