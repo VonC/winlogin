@@ -192,7 +192,7 @@ func (a *app) lookupName(ctx context.Context) {
 		}
 		log.Printf("process finished successfully for n='%s'", n)
 		a.setRes(bout.String())
-		log.Printf("Res for '%s': '%s'", a.getName(), "res") // a.getRes())
+		log.Printf("Res for '%s': '%s'", a.getName(), a.getRes())
 	case <-ctx.Done():
 		log.Printf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
