@@ -116,12 +116,13 @@ func (a *app) listenToKey() {
 		if event.Err != nil {
 			panic(event.Err)
 		}
-		fmt.Printf("You pressed: rune %q, key %X\r\n", event.Rune, event.Key)
+		fmt.Printf("You pressed: rune %q ('%s'), key %X\r\n", event.Rune, string(event.Rune), event.Key)
 		if event.Key == keyboard.KeyEsc {
 			break
 		}
-		rune := event.Rune
-		if unicode.IsLetter(rune) {
+		arune := event.Rune
+		if unicode.IsLetter(arune) {
+			log.Printf("Add '%q/%X' to '%s'", event.Rune, event.Key, a.getName())
 			n := a.getName()
 			if n != "" {
 				fmt.Println("call cancel1")
@@ -132,11 +133,15 @@ func (a *app) listenToKey() {
 			ctx = context.Background()
 			ctx, cancel = context.WithCancel(ctx)
 			defer cancel()
-			a.addToName(string(rune))
+			a.addToName(string(arune))
 			a.searchForName(ctx)
+			continue
 		}
-		if unicode.IsSpace(rune) {
+		if event.Key == 32 {
+			log.Printf("Add space to '%s'", a.getName())
 			a.addToName(" ")
+		} else {
+			log.Printf("Nope on '%d'", event.Key)
 		}
 	}
 }
@@ -187,7 +192,7 @@ func (a *app) lookupName(ctx context.Context) {
 		}
 		log.Printf("process finished successfully for n='%s'", n)
 		a.setRes(bout.String())
-		log.Printf("Res for '%s': '%s'", a.getName(), a.getRes())
+		log.Printf("Res for '%s': '%s'", a.getName(), "res") // a.getRes())
 	case <-ctx.Done():
 		log.Printf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
