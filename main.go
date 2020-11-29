@@ -43,7 +43,9 @@ func (a *app) getName() string {
 
 func (a *app) addToName(c string) {
 	a.Lock()
-	a.name = a.name + c
+	if c != " " || !strings.Contains(a.name, " ") {
+		a.name = a.name + c
+	}
 	a.Unlock()
 }
 
@@ -102,6 +104,9 @@ func (a *app) listenToKey() {
 			defer cancel()
 			a.addToName(string(rune))
 			a.searchForName(ctx)
+		}
+		if unicode.IsSpace(rune) {
+			a.addToName(" ")
 		}
 	}
 }
