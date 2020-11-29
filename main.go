@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
+	"text/tabwriter"
 	"unicode"
 
 	"github.com/VonC/username/version"
@@ -24,12 +27,40 @@ type app struct {
 	verbose bool
 }
 
+// https://regex101.com/r/BQMZei/2
+var re = regexp.MustCompile(`(?m)^\s+(?P<login>\S+)\s+(?P<email>(?P<firstname>[^@.]+)\.(?P<lastname>[^@.]+)@\S+)`)
+
 type res struct {
 	output string
+	wusers users
 }
 
+type user struct {
+	login     string
+	lastname  string
+	firstname string
+	email     string
+}
+
+type users []*user
+
 func (r *res) String() string {
-	return r.output
+	res := r.wusers.String()
+	return res
+}
+
+func (u *user) String() string {
+	return fmt.Sprintf("%s : %s %s (%s)", u.login, u.firstname, u.lastname, u.email)
+}
+
+func (us users) String() string {
+	var csv = new(bytes.Buffer)
+	var wcsv = tabwriter.NewWriter(csv, 0, 8, 2, '\t', 0)
+	for _, u := range us {
+		fmt.Fprintf(wcsv, fmt.Sprintf("%s\t: %s\t%s\t(%s)\n", u.login, u.firstname, u.lastname, u.email))
+	}
+	wcsv.Flush()
+	return csv.String()
 }
 
 func main() {
@@ -81,6 +112,27 @@ func (a *app) setRes(output string) {
 
 func newRes(output string) *res {
 	r := &res{output: output}
+	r.wusers = make(users, 0)
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	// log.Printf("output:'%s'", output)
+	for scanner.Scan() {
+		line := scanner.Text()
+		matches := re.FindStringSubmatch(line)
+		// log.Printf("line:'%s', matches '%+v'", line, matches)
+		if len(matches) > 0 {
+			login := matches[re.SubexpIndex("login")]
+			firstname := matches[re.SubexpIndex("firstname")]
+			lastname := matches[re.SubexpIndex("lastname")]
+			email := matches[re.SubexpIndex("email")]
+			u := &user{
+				login:     login,
+				firstname: firstname,
+				lastname:  lastname,
+				email:     email,
+			}
+			r.wusers = append(r.wusers, u)
+		}
+	}
 	return r
 }
 
@@ -203,7 +255,7 @@ func (a *app) lookupName(ctx context.Context) {
 		}
 		a.logf("process finished successfully for n='%s'", n)
 		a.setRes(bout.String())
-		log.Printf("Res for '%s': '%s'", a.getName(), a.getRes())
+		log.Printf("Res for '%s':'\n%s'", a.getName(), a.getRes())
 	case <-ctx.Done():
 		a.logf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
