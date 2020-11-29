@@ -23,9 +23,9 @@ rem if "%HOUR:~0,1%" == " " (SET dtStamp=%dtStamp9%) else (SET dtStamp=%dtStamp2
 SET dtStamp=%dtStamp24%
 
 if not "%1" == "amd" (
-go build -race -ldflags "-X %dirname%/version.GitTag=%gitver% -X %dirname%/version.BuildUser=%usern% -X %dirname%/version.Version=%VERSION% -X %dirname%/version.BuildDate=%dtStamp%" .
+go build -race -ldflags "-X github.com/VonC/%dirname%/version.GitTag=%gitver% -X github.com/VonC/%dirname%/version.BuildUser=%usern% -X github.com/VonC/%dirname%/version.Version=%VERSION% -X github.com/VonC/%dirname%/version.BuildDate=%dtStamp%" .
 ) else (
-    cmd /V /C "set GOOS=linux&& set GOARCH=amd64&& go build -ldflags ^"-X %dirname%/version.GitTag=%gitver% -X %dirname%/version.BuildUser=%usern% -X %dirname%/version.Version=%VERSION% -X %dirname%/version.BuildDate=%dtStamp%^" ."
+    cmd /V /C "set GOOS=linux&& set GOARCH=amd64&& go build -ldflags ^"-X github.com/VonC/%dirname%/version.GitTag=%gitver% -X github.com/VonC/%dirname%/version.BuildUser=%usern% -X github.com/VonC/%dirname%/version.Version=%VERSION% -X github.com/VonC/%dirname%/version.BuildDate=%dtStamp%^" ."
     if not "%2" == "" (
         scp %dirname% %2:~/bin/%dirname%
     )
