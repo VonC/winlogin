@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -150,6 +151,8 @@ func (a *app) lookupName(ctx context.Context) {
 	// Start a process:
 	scmd := fmt.Sprintf("echo \"%s\">a&& ping 127.0.0.1 -n 8", n)
 	cmd := exec.Command("cmd", "/K", scmd)
+	var out bytes.Buffer
+	cmd.Stdout = &out
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
@@ -165,10 +168,13 @@ func (a *app) lookupName(ctx context.Context) {
 			log.Fatalf("process finished with error = %v for n='%s'", err, n)
 		}
 		log.Printf("process finished successfully for n='%s'", n)
+		a.setRes(out.String())
+		log.Printf("Res for '%s': '%s'", a.getName(), a.getRes())
 	case <-ctx.Done():
 		log.Printf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
 			log.Fatal(err)
 		}
+		a.setRes("")
 	}
 }
