@@ -18,6 +18,8 @@ import (
 	"github.com/VonC/username/version"
 	"github.com/atotto/clipboard"
 	"github.com/eiannone/keyboard"
+	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
 )
 
 type app struct {
@@ -123,7 +125,16 @@ func (a *app) parseFile() {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("'%d' emails to process from email '%s'\n", len(usersfe), a.filename)
+	nbFiles := len(usersfe)
+	fmt.Printf("'%d' emails to process from email '%s'\n", nbFiles, a.filename)
+	p := mpb.New(mpb.WithWidth(64))
+	bar := p.Add(int64(nbFiles),
+		nil,
+		mpb.PrependDecorators(
+			decor.Name(fmt.Sprintf("Email (%d): ", nbFiles)),
+			decor.NewPercentage("%d"),
+		),
+	)
 	for _, u := range usersfe {
 		name := u.firstname
 		if u.lastname != "" {
@@ -131,7 +142,9 @@ func (a *app) parseFile() {
 		}
 		a.setName(name)
 		a.lookupName(ctx, a.addToUsersfe)
+		bar.Increment()
 	}
+	p.Wait()
 
 	fmt.Printf("User from email '%s': '\n%s\n", a.filename, a.usersfe)
 }
