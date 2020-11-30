@@ -58,7 +58,8 @@ func (us users) String() string {
 	var csv = new(bytes.Buffer)
 	var wcsv = tabwriter.NewWriter(csv, 0, 8, 2, '\t', 0)
 	for _, u := range us {
-		fmt.Fprintf(wcsv, fmt.Sprintf("%s\t: %s\t%s\t(%s)\n", u.login, u.firstname, u.lastname, u.email))
+		s := fmt.Sprintf("%s\t: %s\t%s\t(%s)\n", u.login, u.firstname, u.lastname, u.email)
+		fmt.Fprint(wcsv, s)
 	}
 	wcsv.Flush()
 	return csv.String()
