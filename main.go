@@ -181,6 +181,13 @@ func (a *app) addToUsersfe(output string) {
 	if len(r.wusers) == 1 {
 		a.usersfe = append(a.usersfe, r.wusers[0])
 	}
+	if len(r.wusers) == 2 {
+		n1 := r.wusers[0].login
+		n2 := r.wusers[1].login
+		if n2 == n1+"-adm" {
+			a.usersfe = append(a.usersfe, r.wusers[0])
+		}
+	}
 }
 
 func (a *app) isValidDomain(aDomain string) bool {
