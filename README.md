@@ -1,4 +1,4 @@
-# wlogin: get Windows login from name or email
+# winlogin: get Windows login from name or email
 
 This Go program is for Windows only.  
 It uses the environment variable `USERMAIL` to:
@@ -17,13 +17,13 @@ Rather than writing them back, asking for their Windows login (which does not al
 
 ## From name
 
-Launch `wlogin`, and start typing the first letter of the name.
+Launch `winlogin`, and start typing the first letter of the name.
 
 The very first letter must be the first from either the first or last name searched.  
 After that, any other letter can be non-sequential.  
 You can add a space, to separate first/last names (or last/first names: the AD query will check both)
 
-Once there is only one login matching the user firstname/lastname, `wlogin` copies the login in the clipboard and exits automatically.
+Once there is only one login matching the user firstname/lastname, `winlogin` copies the login in the clipboard and exits automatically.
 
 Example:
 
@@ -39,7 +39,7 @@ Mike Robertson
 - Typing `m b` would return `Bob Martinhood`:  
 'm' would be either the first letter of the first name or of the lastname, same for `b`.
 
-So adding a space between `rb mk` forces `wlogin` to consider any entry with:
+So adding a space between `rb mk` forces `winlogin` to consider any entry with:
 
 - a firstname starting with `m`, including `k`
 - a lastname starting with `r`, and including `b`
@@ -49,6 +49,6 @@ Typing `rbmk` (without space) would not select any entry (none start with `r`, a
 
 ## From file
 
-Drop a file with emails in it, and call `wlogin <myFile>`
+Drop a file with emails in it, and call `winlogin <myFile>`
 
 All emails matching your email domain (from `%USERMAIL%`) will be extracted, and their login will be displayed.
