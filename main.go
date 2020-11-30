@@ -15,7 +15,7 @@ import (
 	"text/tabwriter"
 	"unicode"
 
-	"github.com/VonC/username/version"
+	"github.com/VonC/winlogin/version"
 	"github.com/atotto/clipboard"
 	"github.com/eiannone/keyboard"
 	"github.com/vbauerster/mpb/v5"

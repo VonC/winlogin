@@ -1,4 +1,4 @@
-module github.com/VonC/username
+module github.com/VonC/winlogin
 
 go 1.15
 
