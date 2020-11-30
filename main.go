@@ -22,10 +22,13 @@ import (
 
 type app struct {
 	sync.RWMutex
-	name    string
-	domain  string
-	result  *res
-	verbose bool
+	name     string
+	domain   string
+	result   *res
+	verbose  bool
+	filename string
+	// Users From Email: 'usersfe'
+	usersfe users
 }
 
 // https://regex101.com/r/BQMZei/2
@@ -72,6 +75,7 @@ func (a *app) hasOnlyOneUser() bool {
 func main() {
 
 	verbose := false
+	filename := ""
 	for _, f := range os.Args[1:] {
 		fl := strings.ToLower(f)
 		if f == "-V" || fl == "--version" || fl == "version" {
@@ -80,11 +84,105 @@ func main() {
 		}
 		if fl == "-v" || fl == "--verbose" {
 			verbose = true
+		} else {
+			info, err := os.Stat(f)
+			if err == nil && !info.IsDir() {
+				filename = f
+			}
 		}
 	}
 
-	a := &app{verbose: verbose}
-	a.listenToKey()
+	a := &app{verbose: verbose, filename: filename}
+	if filename == "" {
+		a.listenToKey()
+	} else {
+		a.parseFile()
+	}
+}
+
+func (a *app) parseFile() {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	usersfe := make(users, 0)
+	a.usersfe = usersfe
+	usersfe = make(users, 0)
+	file, err := os.Open(a.filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	d := a.getDomainMail()
+	for scanner.Scan() {
+		line := scanner.Text()
+		usersfe = usersfe.extractEmails(line, d)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("'%d' emails to process from email '%s'\n", len(usersfe), a.filename)
+	for _, u := range usersfe {
+		name := u.firstname
+		if u.lastname != "" {
+			name = name + " " + u.lastname
+		}
+		a.setName(name)
+		a.lookupName(ctx, a.addToUsersfe)
+	}
+
+	fmt.Printf("User from email '%s': '\n%s\n", a.filename, a.usersfe)
+}
+
+// https://regex101.com/r/uV73Fo/1
+var reemails = regexp.MustCompile(`(?m)(?P<email>(?P<firstname>[a-zA-Z0-9\-_]+)(\.(?P<lastname>[a-zA-Z0-9\-_]+))?@(?P<domain>[a-zA-Z0-9\-_\.]+))`)
+
+func (us users) extractEmails(line, udomain string) users {
+	// Users From Email: 'usersfe'
+	matches := reemails.FindAllStringSubmatch(line, -1)
+	for _, match := range matches {
+		if len(match) > 0 {
+			firstname := match[reemails.SubexpIndex("firstname")]
+			lastname := match[reemails.SubexpIndex("lastname")]
+			email := match[reemails.SubexpIndex("email")]
+			domain := match[reemails.SubexpIndex("domain")]
+			if domain == udomain && !us.hasEmail(email) {
+				//fmt.Printf("Extract from line email '%s':\n", email)
+				//fmt.Printf("'%s': firstname '%s', lastname '%s', domain '%s'\n", email, firstname, lastname, domain)
+				u := &user{
+					firstname: firstname,
+					lastname:  lastname,
+					email:     email,
+				}
+				us = append(us, u)
+			}
+		}
+	}
+	return us
+}
+
+func (a *app) addToUsersfe(output string) {
+	r := newRes(output)
+	if len(r.wusers) == 1 {
+		a.usersfe = append(a.usersfe, r.wusers[0])
+	}
+}
+
+func (a *app) isValidDomain(aDomain string) bool {
+	d := a.getDomainMail()
+	return d == aDomain
+}
+
+func (us users) hasEmail(email string) bool {
+	e := strings.ToLower(email)
+	for _, u := range us {
+		if strings.ToLower(u.email) == e {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *app) getName() string {
@@ -99,6 +197,12 @@ func (a *app) addToName(c string) {
 	if c != " " || !strings.Contains(a.name, " ") {
 		a.name = a.name + c
 	}
+	a.Unlock()
+}
+
+func (a *app) setName(name string) {
+	a.Lock()
+	a.name = name
 	a.Unlock()
 }
 
@@ -217,10 +321,10 @@ func (a *app) listenToKey() {
 
 func (a *app) searchForName(ctx context.Context) {
 	a.logf("Search for name '%s'\n", a.name)
-	go a.lookupName(ctx)
+	go a.lookupName(ctx, a.addToApp)
 }
 
-func (a *app) lookupName(ctx context.Context) {
+func (a *app) lookupName(ctx context.Context, f fres) {
 	n := a.getName()
 
 	// Start a process:
@@ -260,23 +364,29 @@ func (a *app) lookupName(ctx context.Context) {
 			log.Fatalf("process finished with error = %v for n='%s'", err, n)
 		}
 		a.logf("process finished successfully for n='%s'", n)
-		a.setRes(bout.String())
-		log.Printf("Res for '%s':'\n%s'", a.getName(), a.getRes())
-		if a.hasOnlyOneUser() {
-			login := a.result.wusers[0].login
-			log.Printf("Login '%s' copied to clipbord. Exiting.", login)
-			errc := clipboard.WriteAll(login)
-			if errc != nil {
-				log.Fatalf("Login '%s' NOT copied to the clipboard because of '%+v'\n", login, errc)
-			}
-			os.Exit(0)
-		}
+		f(bout.String())
 	case <-ctx.Done():
 		a.logf("Lookup with '%s' CANCELLED\n", n)
 		if err := cmd.Process.Kill(); err != nil {
 			log.Fatal(err)
 		}
 		a.setRes("")
+	}
+}
+
+type fres func(string)
+
+func (a *app) addToApp(output string) {
+	a.setRes(output)
+	log.Printf("Res for '%s':'\n%s'", a.getName(), a.getRes())
+	if a.hasOnlyOneUser() {
+		login := a.result.wusers[0].login
+		log.Printf("Login '%s' copied to clipbord. Exiting.", login)
+		errc := clipboard.WriteAll(login)
+		if errc != nil {
+			log.Fatalf("Login '%s' NOT copied to the clipboard because of '%+v'\n", login, errc)
+		}
+		os.Exit(0)
 	}
 }
 
@@ -290,13 +400,15 @@ func (a *app) getQueryFromName() string {
 		log.Fatalf("Invalid split on name '%s'", n)
 	}
 	query := ""
-	for i, elt := range elts {
-		var buffer bytes.Buffer
-		for _, rune := range elt {
-			buffer.WriteRune(rune)
-			buffer.WriteRune('*')
+	if a.usersfe == nil {
+		for i, elt := range elts {
+			var buffer bytes.Buffer
+			for _, rune := range elt {
+				buffer.WriteRune(rune)
+				buffer.WriteRune('*')
+			}
+			elts[i] = buffer.String()
 		}
-		elts[i] = buffer.String()
 	}
 	filters := make([]string, 0)
 	if len(elts) == 1 {
@@ -313,5 +425,6 @@ func (a *app) getQueryFromName() string {
 		query = fmt.Sprintf("(|%s)", query)
 	}
 	query = fmt.Sprintf("DSQUERY * domainroot -filter \"%s\" -attr sAMAccountName mail", query)
+	//fmt.Printf("Query='%s'\n", query)
 	return query
 }
