@@ -401,7 +401,8 @@ func (a *app) addToApp(output string) {
 	log.Printf("Res for '%s':'\n%s'", a.getName(), a.getRes())
 	if a.hasOnlyOneUser() {
 		login := a.result.wusers[0].login
-		log.Printf("Login '%s' copied to clipbord. Exiting.", login)
+		login = strings.ToLower(login)
+		log.Printf("Login '%s' copied to clipboard. Exiting.", login)
 		errc := clipboard.WriteAll(login)
 		if errc != nil {
 			log.Fatalf("Login '%s' NOT copied to the clipboard because of '%+v'\n", login, errc)
