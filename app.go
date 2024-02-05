@@ -101,8 +101,32 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update implements tea.Model.
-func (m Model) Update(tea.Msg) (tea.Model, tea.Cmd) {
-	return m, nil
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = min(msg.Width, maxWidth) - m.styles.Base.GetHorizontalFrameSize()
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "ctrl+c", "q":
+			return m, tea.Quit
+		}
+	}
+
+	var cmds []tea.Cmd
+
+	// Process the form
+	form, cmd := m.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form = f
+		cmds = append(cmds, cmd)
+	}
+
+	if m.form.State == huh.StateCompleted {
+		// Quit when the form is done.
+		cmds = append(cmds, tea.Quit)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 // View implements tea.Model.
@@ -113,7 +137,7 @@ func (m Model) View() string {
 	form := m.lg.NewStyle().Margin(1, 0).Render(v)
 
 	errors := m.form.Errors()
-	header := m.appBoundaryView("Charm Employment Application")
+	header := m.appBoundaryView("WinLogin")
 	if len(errors) > 0 {
 		header = m.appErrorBoundaryView(m.errorView())
 	}
