@@ -94,6 +94,11 @@ func main() {
 		}
 	}
 
+	if os.Getenv("WINLOGINAPP") != "" {
+		mainApp()
+		return
+	}
+
 	a := &app{verbose: verbose, filename: filename}
 	if filename == "" {
 		a.listenToKey()
