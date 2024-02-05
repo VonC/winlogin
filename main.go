@@ -190,11 +190,12 @@ func (a *app) addToUsersfe(output string) {
 	}
 }
 
-func (a *app) isValidDomain(aDomain string) bool {
-	d := a.getDomainMail()
-	return d == aDomain
-}
-
+/*
+	func (a *app) isValidDomain(aDomain string) bool {
+		d := a.getDomainMail()
+		return d == aDomain
+	}
+*/
 func (us users) hasEmail(email string) bool {
 	e := strings.ToLower(email)
 	for _, u := range us {
